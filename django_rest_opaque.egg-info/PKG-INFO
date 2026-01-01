@@ -2,7 +2,7 @@ Metadata-Version: 2.4
 Name: django-rest-opaque
 Version: 0.1.0
 Summary: Django REST Framework app implementing OPAQUE password-authenticated key exchange protocol
-Author-email: <romxsalarda45@gmail.com>
+Author-email: Your Name <your.email@example.com>
 License: MIT
 Keywords: django,rest-framework,opaque,authentication,password,cryptography
 Classifier: Development Status :: 3 - Alpha
@@ -30,6 +30,9 @@ Requires-Dist: opaquepy==0.6.0
 Requires-Dist: opaque==1.0.0
 Requires-Dist: pysodium>=0.7.18
 Dynamic: license-file
+
+# IMPORTANT: 
+This is a coursework project and should not be used in practice
 
 # Django REST OPAQUE
 
