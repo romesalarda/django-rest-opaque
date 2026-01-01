@@ -36,7 +36,7 @@ def opaque_registration_finish(req:request.HttpRequest):
     envelope_to_be_saved = opaquepy.register_finish(client_request_finish)
     
     user, created = get_user_model().objects.get_or_create(**{OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id})
-    if user.opaque_credential:
+    if getattr(user, 'opaque_credential', None):
         user.opaque_credential.delete()
     user.opaque_credential = OpaqueCredential.objects.create(user=user, opaque_envelope=bytes(envelope_to_be_saved, encoding="utf-8"))
     user.save()

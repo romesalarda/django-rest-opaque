@@ -1,3 +1,6 @@
+# IMPORTANT: 
+This is a coursework project and should not be used in practice
+
 # Django REST OPAQUE
 
 A Django REST Framework application implementing the OPAQUE (Oblivious Pseudorandom Function) password-authenticated key exchange protocol. This package provides a passwordless authentication system where password verification occurs without the server ever seeing the plaintext password.
