@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-rest-opaque"
+version = "0.1.0"
+description = "Django REST Framework app implementing OPAQUE password-authenticated key exchange protocol"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = ["django", "rest-framework", "opaque", "authentication", "password", "cryptography"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Security :: Cryptography",
+]
+
+dependencies = [
+    "Django>=4.2.0",
+    "djangorestframework>=3.14.0",
+    "opaquepy==0.6.0",
+    "opaque==1.0.0",
+    "pysodium>=0.7.18",
+]
+
+[project.urls]
+
+[tool.setuptools]
+packages = ["django_rest_opaque", "django_rest_opaque.management", "django_rest_opaque.management.commands", "django_rest_opaque.migrations"]
+
+[tool.setuptools.package-data]
+django_rest_opaque = ["migrations/*.py"]
