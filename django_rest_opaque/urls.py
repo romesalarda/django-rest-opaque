@@ -1,3 +1,6 @@
+'''
+URL configurations for django-rest-opaque.
+'''
 
 from django.urls import path
 
@@ -29,4 +32,24 @@ urlpatterns = [
     path('check', check_opaque_support, name="o-support-check"),
 ]
 
-OPAQUEURLPATTERNS = urlpatterns
+def get_url_patterns():
+    '''
+    Validates OPAQUE settings and returns the urlpatterns.
+    '''
+
+    from django.conf import settings
+    from django.core.exceptions import ImproperlyConfigured
+
+    OPAQUE_SETTINGS = getattr(settings, "OPAQUE_SETTINGS", None)
+
+    if not OPAQUE_SETTINGS:
+        raise ImproperlyConfigured(
+            "OPAQUE_SETTINGS is not configured in your Django settings. Please add it to configure django-rest-opaque."
+        )
+
+    if OPAQUE_SETTINGS["OPAQUE_SERVER_SETUP"] is None:
+        raise ImproperlyConfigured(
+            "OPAQUE_SETTINGS must include 'OPAQUE_SERVER_SETUP' with the server setup key. Run 'python manage.py generate_opaque_setup' to create one."
+        )
+
+    return urlpatterns

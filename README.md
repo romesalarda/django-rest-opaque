@@ -15,8 +15,9 @@ A Django REST Framework application implementing the OPAQUE (Oblivious Pseudoran
 - **Django Admin Integration**: Manage OPAQUE credentials via Django admin
 
 ## Requirements
+- Project built and developed in Python 3.13
 
-- Python >= 3.8
+- Python >= 3.8 cannot be larger than Python 3.14
 - Django >= 4.2.0
 - Django REST Framework >= 3.14.0
 - opaquepy == 0.6.0

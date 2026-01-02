@@ -14,3 +14,14 @@ class OpaqueCredential(models.Model):
 
     def __str__(self):
         return f'OPAQUE Credential for {self.user.email}'
+    
+    def __repr__(self):
+        return f'<OpaqueCredential user={self.user.email} invalidated={self.invalidated}>'
+    
+    class Meta:
+        verbose_name = "OPAQUE Credential"
+        verbose_name_plural = "OPAQUE Credentials"
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['invalidated']),
+        ]

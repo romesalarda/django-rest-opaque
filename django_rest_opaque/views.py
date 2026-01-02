@@ -1,19 +1,18 @@
+'''
+Views for handling OPAQUE registration and login processes.
+'''
 from rest_framework import decorators, request, response
-from rest_framework.permissions import IsAuthenticated
-# from user.models import CustomUser
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from . import OPAQUE_SETTINGS
 
 from django.shortcuts import get_object_or_404
 from django.core.cache import cache
-from django.conf import settings
 from django.contrib.auth import login
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import get_user_model
 
 from django_rest_opaque.models import OpaqueCredential
 
 import opaquepy
-import base64
 import uuid
 import hashlib
 
@@ -21,15 +20,30 @@ import hashlib
 SERVER_SETUP = OPAQUE_SETTINGS["OPAQUE_SERVER_SETUP"]
 
 @decorators.api_view(["POST"])
+@decorators.permission_classes([AllowAny])
 def opaque_registration(req:request.HttpRequest):
+    '''
+    OPAQUE Registration Step 1: Start registration process
+    Returns server response to client to continue registration
+    
+    :param req: The HTTP request containing registration data
+    :type req: request.HttpRequest
+    '''
     user_id = req.data.get(OPAQUE_SETTINGS["USER_QUERY_FIELD"])
     registration_request = req.data.get("registration_request")
     to_client = opaquepy.register(SERVER_SETUP, registration_request, user_id)
     return response.Response(to_client)
 
 @decorators.api_view(["POST"])
+@decorators.permission_classes([AllowAny])
 def opaque_registration_finish(req:request.HttpRequest):
+    '''
+    OPAQUE Registration Step 2: Finish registration process
+    Stores the OPAQUE envelope in the database associated with the user
     
+    :param req: The HTTP request containing registration data
+    :type req: request.HttpRequest
+    '''
     user_id = req.data.get(OPAQUE_SETTINGS["USER_QUERY_FIELD"])
     client_request_finish = req.data.get("registration_record")
     
@@ -44,6 +58,7 @@ def opaque_registration_finish(req:request.HttpRequest):
     return response.Response({"statusText": "new user created!"})
 
 @decorators.api_view(["POST"])
+@decorators.permission_classes([AllowAny])
 def opaque_login(req:request.HttpRequest):
     """
     OPAQUE Login Step 1: Start login process
@@ -83,6 +98,7 @@ def opaque_login(req:request.HttpRequest):
     })
 
 @decorators.api_view(["POST"])
+@decorators.permission_classes([AllowAny])
 def opaque_login_finish(req:request.HttpRequest):
     """
     OPAQUE Login Step 2: Finish login process
@@ -131,6 +147,7 @@ def opaque_login_finish(req:request.HttpRequest):
     })
     
 @decorators.api_view(["GET"])
+@decorators.permission_classes([AllowAny])
 def check_opaque_support(req:request.HttpRequest):
     """
     Endpoint to check if OPAQUE is supported on the server
