@@ -9,12 +9,15 @@ from django.shortcuts import get_object_or_404
 from django.core.cache import cache
 from django.contrib.auth import login
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 
 from django_rest_opaque.models import OpaqueCredential
 
 import opaquepy
 import uuid
 import hashlib
+
+import logging
 
 # Initialize server setup once at module load
 SERVER_SETUP = OPAQUE_SETTINGS["OPAQUE_SERVER_SETUP"]
@@ -29,8 +32,20 @@ def opaque_registration(req:request.HttpRequest):
     :param req: The HTTP request containing registration data
     :type req: request.HttpRequest
     '''
-    user_id = req.data.get(OPAQUE_SETTINGS["USER_QUERY_FIELD"])
-    registration_request = req.data.get("registration_request")
+    try:    
+        user_id = req.data.get(OPAQUE_SETTINGS["USER_QUERY_FIELD"])
+    except KeyError:
+        return response.Response(
+            {"error": f"{OPAQUE_SETTINGS['USER_QUERY_FIELD']} is required"},
+            status=400
+        )
+    try:
+        registration_request = req.data["registration_request"]
+    except KeyError:
+        return response.Response(
+            {"error": "registration_request is required"},
+            status=400
+        )
     to_client = opaquepy.register(SERVER_SETUP, registration_request, user_id)
     return response.Response(to_client)
 
@@ -44,16 +59,42 @@ def opaque_registration_finish(req:request.HttpRequest):
     :param req: The HTTP request containing registration data
     :type req: request.HttpRequest
     '''
-    user_id = req.data.get(OPAQUE_SETTINGS["USER_QUERY_FIELD"])
-    client_request_finish = req.data.get("registration_record")
-    
-    envelope_to_be_saved = opaquepy.register_finish(client_request_finish)
+    try:    
+        user_id = req.data[OPAQUE_SETTINGS["USER_QUERY_FIELD"]]
+    except KeyError:
+        return response.Response(
+            {"error": f"{OPAQUE_SETTINGS['USER_QUERY_FIELD']} is required"},
+            status=400
+        )
+    try:
+        client_request_finish = req.data["registration_record"]
+    except KeyError:
+        return response.Response(
+            {"error": "registration_record is required"},
+            status=400
+        )
+    try:
+        envelope_to_be_saved = opaquepy.register_finish(client_request_finish)
+    except Exception as e:
+        logging.error(f"OPAQUE registration finish error: {e}")
+        return response.Response(
+            {"error": "Failed to finish OPAQUE registration, invalid data provided"},
+            status=400
+        )
     
     user, created = get_user_model().objects.get_or_create(**{OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id})
-    if getattr(user, 'opaque_credential', None):
+    if getattr(user, 'opaque_credential', None): # if a user already has credentials, delete them
+        # we operate a single-credential policy per user for simplicity
         user.opaque_credential.delete()
-    user.opaque_credential = OpaqueCredential.objects.create(user=user, opaque_envelope=bytes(envelope_to_be_saved, encoding="utf-8"))
-    user.save()
+    try:
+        user.opaque_credential = OpaqueCredential.objects.create(user=user, opaque_envelope=bytes(envelope_to_be_saved, encoding="utf-8"))
+        user.save()
+    except Exception as e:
+        logging.error(f"Failed to save OPAQUE credential: {e}")
+        return response.Response(
+            {"error": "Failed to save OPAQUE credential"},
+            status=500
+        )
     
     return response.Response({"statusText": "new user created!"})
 
@@ -64,10 +105,23 @@ def opaque_login(req:request.HttpRequest):
     OPAQUE Login Step 1: Start login process
     Stores login state in cache and returns server response + cache key to client
     """
-    user_id = req.data.get(OPAQUE_SETTINGS["USER_QUERY_FIELD"])
-    client_request = req.data.get("client_request")
+    try:
+        user_id = req.data[OPAQUE_SETTINGS["USER_QUERY_FIELD"]]
+    except KeyError:
+        return response.Response(
+            {"error": f"{OPAQUE_SETTINGS['USER_QUERY_FIELD']} is required"},
+            status=400
+        )
+    try:
+        client_request = req.data["client_request"]
+    except KeyError:
+        return response.Response(
+            {"error": "client_request is required"},
+            status=400
+        )
     
     user = get_object_or_404(get_user_model(), **{OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id})
+
     try:
         envelope = user.opaque_credential.opaque_envelope.decode("utf-8")
     except OpaqueCredential.DoesNotExist:
@@ -75,13 +129,19 @@ def opaque_login(req:request.HttpRequest):
             {"error": "User does not have OPAQUE credentials"},
             status=401
         )
-    
-    client_response, login_state = opaquepy.login(
-        setup=SERVER_SETUP,
-        password_file=envelope,
-        client_request=client_request,
-        credential_id=user_id
-    )
+    try:
+        client_response, login_state = opaquepy.login(
+            setup=SERVER_SETUP,
+            password_file=envelope,
+            client_request=client_request,
+            credential_id=user_id
+        )
+    except Exception as e:
+        logging.error(f"OPAQUE login start error: {e}")
+        return response.Response(
+            {"error": "Failed to start OPAQUE login, invalid data provided"},
+            status=400
+        )
     
     cache_key = f"opaque_login_{uuid.uuid4().hex}"
     
@@ -104,12 +164,19 @@ def opaque_login_finish(req:request.HttpRequest):
     OPAQUE Login Step 2: Finish login process
     Retrieves login state from cache and completes authentication
     """
-    cache_key = req.data.get("cache_key")
-    client_finish_request = req.data.get("client_finish_request")
-    
-    if not cache_key:
+    try:
+        cache_key = req.data["cache_key"]
+    except KeyError:
         return response.Response(
             {"error": "cache_key is required"},
+            status=400
+        )
+    
+    try:
+        client_finish_request = req.data["client_finish_request"]
+    except KeyError:
+        return response.Response(
+            {"error": "client_finish_request is required"},
             status=400
         )
     
@@ -123,23 +190,26 @@ def opaque_login_finish(req:request.HttpRequest):
         )
     
     login_state = cache_data.get('login_state')
-    user_id = cache_data.get(OPAQUE_SETTINGS["USER_QUERY_FIELD"])
-    user_id = cache_data.get('user_id')
+    user_id = cache_data.get(OPAQUE_SETTINGS["USER_ID_FIELD"])
     
-    session_key = opaquepy.login_finish(
-        client_finish_request,
-        login_state)
+    try:
+        session_key = opaquepy.login_finish(
+            client_finish_request,
+            login_state)
+    except Exception as e:
+        logging.error(f"OPAQUE login finish error: {e}")
+        return response.Response(
+            {"error": "Failed to finish OPAQUE login, invalid data provided"},
+            status=400
+        )
  
     cache.delete(cache_key)
     user = get_object_or_404(get_user_model(), **{OPAQUE_SETTINGS["USER_ID_FIELD"]: user_id})
     
     login(req, user)
-    req.session["opaque_key"] = hashlib.sha256(session_key.encode()).hexdigest()
-    
-    # print(f"Login completed for user: {user_id}")
-    # print(f"Session key: {req.session.session_key}")
-    # print(f"User authenticated: {req.user.is_authenticated}")
-    
+
+    logging.info(f"User {user_id} logged in successfully via OPAQUE.")    
+
     return response.Response({
         "statusText": "Login successful",
         OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id,
@@ -154,13 +224,23 @@ def check_opaque_support(req:request.HttpRequest):
     """
     return response.Response({
         "opaque_supported": True,
-        "message": "OPAQUE is supported on this server."})
+        "message": "OPAQUE is supported on this server.",
+        "endpoints": { # return available endpoints
+            "registration": reverse('opaque_registration'),
+            "registration_finish": reverse('opaque_registration_finish'),
+            "login": reverse('opaque_login'),
+            "login_finish": reverse('opaque_login_finish'),
+            "session_verify": reverse('opauque_session_verify'),
+            "session_logout": reverse('opaque_session_logout'),
+            "session_redirect": reverse('opaque_session_redirect'),
+            "check": reverse('opaque_support_check'),
+        }})
 
 @decorators.api_view(["GET"])
 @decorators.permission_classes([IsAuthenticated])
 def verify_session(req:request.HttpRequest):
     """
-    Verify that the user's session is active and valid
+    Verify that the user's session is active and valid - use for OPAQUE session checks
     """
     return response.Response({
         "authenticated": True,
@@ -173,6 +253,8 @@ def session_redirect(req:request.HttpRequest):
     """
     Redirect endpoint that transfers the session to browser context.
     Used after OPAQUE login to activate session in main browser.
+
+    Use case: After OPAQUE login via API, redirect user to home page with active session.
     """
     from django.shortcuts import redirect
     
@@ -188,12 +270,21 @@ def session_redirect(req:request.HttpRequest):
 def logout_session(req:request.HttpRequest):
     """
     Logout the user and invalidate the session
+
+    OPAQUE does not have a logout mechanism, so this simply ends the session.
     """
     from django.contrib.auth import logout
-    user_id = getattr(req.user, OPAQUE_SETTINGS["USER_QUERY_FIELD"])
+    try:
+        user_query_field = getattr(req.user, OPAQUE_SETTINGS["USER_QUERY_FIELD"])
+    except AttributeError:
+        return response.Response(
+            {"error": "User not found"},
+            status=400
+        )
+
     logout(req)
     
     return response.Response({
         "statusText": "Logout successful",
-        OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id
+        OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_query_field
     })
