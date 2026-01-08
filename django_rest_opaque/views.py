@@ -10,18 +10,19 @@ from django.core.cache import cache
 from django.contrib.auth import login
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 
 from django_rest_opaque.models import OpaqueCredential
 
 import opaquepy
 import uuid
-import hashlib
 
 import logging
 
 # Initialize server setup once at module load
 SERVER_SETUP = OPAQUE_SETTINGS["OPAQUE_SERVER_SETUP"]
 
+@csrf_exempt
 @decorators.api_view(["POST"])
 @decorators.permission_classes([AllowAny])
 def opaque_registration(req:request.HttpRequest):
@@ -46,9 +47,18 @@ def opaque_registration(req:request.HttpRequest):
             {"error": "registration_request is required"},
             status=400
         )
-    to_client = opaquepy.register(SERVER_SETUP, registration_request, user_id)
+    try:
+        to_client = opaquepy.register(SERVER_SETUP, registration_request, user_id)
+    except Exception as e:
+        logging.error(f"OPAQUE registration error: {e}")
+        return response.Response(
+            {"error": "Failed to start OPAQUE registration, invalid data provided"},
+            status=400
+        )
+    
     return response.Response(to_client)
 
+@csrf_exempt
 @decorators.api_view(["POST"])
 @decorators.permission_classes([AllowAny])
 def opaque_registration_finish(req:request.HttpRequest):
@@ -98,6 +108,7 @@ def opaque_registration_finish(req:request.HttpRequest):
     
     return response.Response({"statusText": "new user created!"})
 
+@csrf_exempt
 @decorators.api_view(["POST"])
 @decorators.permission_classes([AllowAny])
 def opaque_login(req:request.HttpRequest):
@@ -157,6 +168,7 @@ def opaque_login(req:request.HttpRequest):
         "cache_key": cache_key
     })
 
+@csrf_exempt
 @decorators.api_view(["POST"])
 @decorators.permission_classes([AllowAny])
 def opaque_login_finish(req:request.HttpRequest):
@@ -216,6 +228,7 @@ def opaque_login_finish(req:request.HttpRequest):
         "session_active": True
     })
     
+@csrf_exempt
 @decorators.api_view(["GET"])
 @decorators.permission_classes([AllowAny])
 def check_opaque_support(req:request.HttpRequest):
@@ -230,7 +243,7 @@ def check_opaque_support(req:request.HttpRequest):
             "registration_finish": reverse('opaque_registration_finish'),
             "login": reverse('opaque_login'),
             "login_finish": reverse('opaque_login_finish'),
-            "session_verify": reverse('opauque_session_verify'),
+            "session_verify": reverse('opaque_session_verify'),
             "session_logout": reverse('opaque_session_logout'),
             "session_redirect": reverse('opaque_session_redirect'),
             "check": reverse('opaque_support_check'),
