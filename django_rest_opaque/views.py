@@ -47,6 +47,12 @@ def opaque_registration(req:request.HttpRequest):
             {"error": "registration_request is required"},
             status=400
         )
+    if get_user_model().objects.filter(**{OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id}).exists():
+        return response.Response(
+            {"error": "User already exists"},
+            status=409
+        )
+
     try:
         to_client = opaquepy.register(SERVER_SETUP, registration_request, user_id)
     except Exception as e:
@@ -83,6 +89,12 @@ def opaque_registration_finish(req:request.HttpRequest):
             {"error": "registration_record is required"},
             status=400
         )
+    if get_user_model().objects.filter(**{OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id}).exists():
+        return response.Response(
+            {"error": "User already exists"},
+            status=409
+        )
+
     try:
         envelope_to_be_saved = opaquepy.register_finish(client_request_finish)
     except Exception as e:
@@ -130,9 +142,7 @@ def opaque_login(req:request.HttpRequest):
             {"error": "client_request is required"},
             status=400
         )
-    
     user = get_object_or_404(get_user_model(), **{OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id})
-
     try:
         envelope = user.opaque_credential.opaque_envelope.decode("utf-8")
     except OpaqueCredential.DoesNotExist:
@@ -161,6 +171,7 @@ def opaque_login(req:request.HttpRequest):
         OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id,
         'user_id': getattr(user, OPAQUE_SETTINGS["USER_ID_FIELD"])
     }
+    print("Storing login state in cache with key:", cache_data)
     cache.set(cache_key, cache_data, timeout=300)  # 5 minutes
         
     return response.Response({
@@ -202,7 +213,14 @@ def opaque_login_finish(req:request.HttpRequest):
         )
     
     login_state = cache_data.get('login_state')
-    user_id = cache_data.get(OPAQUE_SETTINGS["USER_ID_FIELD"])
+    user_id = cache_data.get("user_id")
+
+    if not user_id or not login_state:
+        logging.error("Invalid login state or user ID in cache data")
+        return response.Response(
+            {"error": "Invalid login state in cache"},
+            status=400
+        )
     
     try:
         session_key = opaquepy.login_finish(
