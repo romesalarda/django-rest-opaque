@@ -14,7 +14,7 @@ A Django REST Framework application implementing the OPAQUE (Oblivious Pseudoran
 - **RESTful API**: Full REST API endpoints for authentication flow
 - **Django Admin Integration**: Manage OPAQUE credentials via Django admin
 
-## Requirements
+## Requirements !IMPORTANT
 - Project built and developed in Python 3.13
 
 - Python >= 3.8 cannot be larger than Python 3.14
@@ -71,7 +71,7 @@ Add OPAQUE settings to your `settings.py`:
 ```python
 OPAQUE_SETTINGS = {
     "USER_QUERY_FIELD": "email",  # Field to query users (default: "email")
-    "USER_ID_FIELD": "id",        # Field for user ID (default: "id")
+    "USER_ID_FIELD": "id",        # Field for User model table primary key
     "OPAQUE_SERVER_SETUP": "<your_server_setup_key_here>",  # REQUIRED: From step 2
 }
 ```
@@ -96,10 +96,11 @@ Include the OPAQUE URLs in your project's `urls.py`:
 
 ```python
 from django.urls import path, include
+from django_rest_opaque.urls import get_url_patterns # checks for correct configuration
 
 urlpatterns = [
     # ... other patterns
-    path('o/', include('django_rest_opaque.urls')),
+    path('o/', include(get_url_patterns())),
 ]
 ```
 
@@ -123,7 +124,8 @@ All endpoints are relative to your configured URL prefix (e.g., `/o/`).
 Request body:
 ```json
 {
-    "email": "user@example.com"
+    "email": "user@example.com",
+    "registration_request": "<GENERATED_BY_PASSWORD_MANAGER>"
 }
 ```
 
@@ -141,14 +143,14 @@ Request body:
 ```json
 {
     "email": "user@example.com",
-    "client_response": "<base64_encoded_data>"
+    "registration_record": "<base64_encoded_data>"
 }
 ```
 
 Response:
 ```json
 {
-    "message": "Registration successful"
+    "statusText": "new user created!"
 }
 ```
 
@@ -169,7 +171,7 @@ Response:
 ```json
 {
     "cache_key": "<session_cache_key>",
-    "server_response": "<base64_encoded_data>"
+    "client_response": "<base64_encoded_data>"
 }
 ```
 
@@ -180,15 +182,16 @@ Request body:
 ```json
 {
     "cache_key": "<session_cache_key>",
-    "client_response": "<base64_encoded_data>"
+    "client_finish_request": "<base64_encoded_data>"
 }
 ```
 
 Response:
 ```json
 {
-    "message": "Login successful",
-    "user_id": 1
+    "statusText": "Login successful",
+    "user_id": 1,
+    "session_active": true
 }
 ```
 
@@ -198,6 +201,7 @@ Response:
 **GET** `/check`
 
 Requires authentication. Returns session status.
+Returns available endpoints
 
 #### Verify Session
 **GET** `/verify`
@@ -299,10 +303,6 @@ OPAQUE (Oblivious Pseudorandom Function) is a password-authenticated key exchang
 The protocol involves two phases:
 - **Registration**: User creates credentials, server stores encrypted envelope
 - **Authentication**: User proves knowledge of password without revealing it
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
