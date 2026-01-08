@@ -1,5 +1,0 @@
-Django>=4.2.0
-djangorestframework>=3.14.0
-opaquepy==0.6.0
-opaque==1.0.0
-pysodium>=0.7.18

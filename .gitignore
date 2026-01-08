@@ -19,3 +19,4 @@ build/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
+django_rest_opaque.egg-info/
