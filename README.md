@@ -100,7 +100,7 @@ from django_rest_opaque.urls import get_url_patterns # checks for correct config
 
 urlpatterns = [
     # ... other patterns
-    path('o/', include(get_url_patterns())),
+    path('o/', include(get_url_patterns())), #! important, do not add name spaces!
 ]
 ```
 
@@ -255,7 +255,7 @@ Stores OPAQUE envelope (encrypted credentials) for each user.
 
 Fields:
 - `user`: OneToOneField to your User model
-- `envelope`: BinaryField storing the encrypted credential envelope
+- `opaque_envelope`: BinaryField storing the encrypted credential envelope
 - `created_at`: DateTime of credential creation
 - `updated_at`: DateTime of last credential update
 
@@ -265,12 +265,6 @@ user.opaque_credential.envelope
 ```
 
 ## Development
-
-### Running Tests
-
-```bash
-python manage.py test django_rest_opaque
-```
 
 ### Building the Package
 
