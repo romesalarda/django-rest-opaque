@@ -142,7 +142,13 @@ def opaque_login(req:request.HttpRequest):
             {"error": "client_request is required"},
             status=400
         )
-    user = get_object_or_404(get_user_model(), **{OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id})
+    try:
+        user = get_user_model().objects.get(**{OPAQUE_SETTINGS["USER_QUERY_FIELD"]: user_id})
+    except get_user_model().DoesNotExist:
+        return response.Response(
+            {"error": "Username or password incorrect"},
+            status=401
+        )
     try:
         envelope = user.opaque_credential.opaque_envelope.decode("utf-8")
     except OpaqueCredential.DoesNotExist:
